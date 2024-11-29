@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html>
 
 <head>
@@ -12,11 +11,11 @@
         <input type="text" id="amount" placeholder="Enter amount">
         <p>Balance: <span id="balance">Loading...</span></p>
         <button id="deposit">Deposit</button>
-        <button id="withdrawl">Withdraw</button>
+        <button id="withdrawal">Withdraw</button>
     </div>
 
     <!-- Include Web3.js -->
-    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.34/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <!-- Include jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js" crossorigin="anonymous"></script>
 
@@ -25,91 +24,97 @@
         var userAccount;
 
         $(document).ready(async function () {
-            // Check if Web3 is injected (MetaMask)
             if (window.ethereum) {
                 web3 = new Web3(window.ethereum);
                 try {
                     // Request account access
                     await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    console.log("MetaMask connected");
+                    const accounts = await web3.eth.getAccounts();
+
+                    if (accounts.length === 0) {
+                        alert("No accounts found. Please connect MetaMask.");
+                        return;
+                    }
+                    userAccount = accounts[0];
+                    console.log("Connected account:", userAccount);
+
+                    // Contract setup
+                    const address = "0x62279D6Fe35858A72096EFC95aCB576Fb698A94c"; // Replace with your contract address
+                    const abi = [
+                        {
+                            "inputs": [
+                                {
+                                    "internalType": "int256",
+                                    "name": "amt",
+                                    "type": "int256"
+                                }
+                            ],
+                            "name": "deposit",
+                            "outputs": [],
+                            "stateMutability": "nonpayable",
+                            "type": "function"
+                        },
+                        {
+                            "inputs": [],
+                            "stateMutability": "nonpayable",
+                            "type": "constructor"
+                        },
+                        {
+                            "inputs": [
+                                {
+                                    "internalType": "int256",
+                                    "name": "amt",
+                                    "type": "int256"
+                                }
+                            ],
+                            "name": "withdraw",
+                            "outputs": [],
+                            "stateMutability": "nonpayable",
+                            "type": "function"
+                        },
+                        {
+                            "inputs": [],
+                            "name": "getBalance",
+                            "outputs": [
+                                {
+                                    "internalType": "int256",
+                                    "name": "",
+                                    "type": "int256"
+                                }
+                            ],
+                            "stateMutability": "view",
+                            "type": "function"
+                        }
+                    ];
+
+                    contract = new web3.eth.Contract(abi, address);
+
+                    // Fetch and display initial balance
+                    updateBalance();
                 } catch (error) {
-                    console.error("User denied account access:", error);
-                    return;
+                    console.error("MetaMask error:", error);
+                    alert("Error connecting to MetaMask. Check the console for details.");
                 }
-            } else if (window.web3) {
-                web3 = new Web3(web3.currentProvider);
             } else {
                 alert("No Ethereum browser detected. Please install MetaMask!");
-                return;
             }
-
-            // Fetch user account
-            web3.eth.getAccounts().then(function (accounts) {
-                if (accounts.length === 0) {
-                    alert("No accounts found. Please connect MetaMask.");
-                    return;
-                }
-                userAccount = accounts[0];
-                console.log("Connected account:", userAccount);
-            });
-
-            // Contract setup
-            var address = ""; // Replace with your contract address
-            var abi = [
-                {
-                    "inputs": [
-                        {
-                            "internalType": "int256",
-                            "name": "amt",
-                            "type": "int256"
-                        }
-                    ],
-                    "name": "deposit",
-                    "outputs": [],
-                    "stateMutability": "nonpayable",
-                    "type": "function"
-                },
-                {
-                    "inputs": [],
-                    "stateMutability": "nonpayable",
-                    "type": "constructor"
-                },
-                {
-                    "inputs": [
-                        {
-                            "internalType": "int256",
-                            "name": "amt",
-                            "type": "int256"
-                        }
-                    ],
-                    "name": "withdraw",
-                    "outputs": [],
-                    "stateMutability": "nonpayable",
-                    "type": "function"
-                },
-                {
-                    "inputs": [],
-                    "name": "getBalance",
-                    "outputs": [
-                        {
-                            "internalType": "int256",
-                            "name": "",
-                            "type": "int256"
-                        }
-                    ],
-                    "stateMutability": "view",
-                    "type": "function"
-                }
-            ];
-            contract = new web3.eth.Contract(abi, address);
-
-            // Fetch and display initial balance
-            contract.methods.getBalance().call().then(function (bal) {
-                $('#balance').text(bal);
-            }).catch(function (error) {
-                console.error("Error fetching balance:", error);
-            });
         });
+
+        // Update balance function
+        function updateBalance() {
+            if (contract) {
+                contract.methods.getBalance().call({ from: userAccount })
+                    .then(function (bal) {
+                        console.log("Fetched balance:", bal);
+                        $('#balance').text(bal);
+                    })
+                    .catch(function (error) {
+                        console.error("Error fetching balance:", error);
+                    });
+            } else {
+                console.error("Contract not initialized.");
+            }
+        }
 
         // Deposit function
         $('#deposit').click(function () {
@@ -129,7 +134,7 @@
         });
 
         // Withdraw function
-        $('#withdrawl').click(function () {
+        $('#withdrawal').click(function () {
             var amt = parseInt($('#amount').val());
             if (isNaN(amt)) {
                 alert("Please enter a valid amount");
@@ -144,15 +149,6 @@
                     console.error("Error during withdrawal:", error);
                 });
         });
-
-        // Update balance
-        function updateBalance() {
-            contract.methods.getBalance().call().then(function (bal) {
-                $('#balance').text(bal);
-            }).catch(function (error) {
-                console.error("Error updating balance:", error);
-            });
-        }
     </script>
 </body>
 
